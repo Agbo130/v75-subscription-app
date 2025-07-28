@@ -12,23 +12,23 @@ except ImportError:
 
 app = FastAPI()
 
-# Async WebSocket fetch with timeout fallback
+# Fetch live price from Deriv (WebSocket)
 async def fetch_v75_price():
     try:
         if not websockets:
-            raise RuntimeError("Websockets not available in environment")
+            raise RuntimeError("Websockets not available in this environment")
         uri = "wss://ws.deriv.com/websockets/v3"
         async with websockets.connect(uri) as websocket:
             await websocket.send(json.dumps({"ticks": "R_75"}))
             response = await websocket.recv()
             data = json.loads(response)
             return round(float(data["tick"]["quote"]), 2)
-    except Exception as e:
-        return None  # fallback
+    except Exception:
+        return None
 
+# Generate signal from price (or fake fallback)
 def generate_signal(price=None):
     if price is None:
-        # fallback signal
         price = round(random.uniform(1300, 1700), 2)
     direction = "BUY"
     tp = round(price + 100, 2)
@@ -43,20 +43,25 @@ async def home():
 
     info = ""
     if live_price is None:
-        info = "<p style='color:red'><b>⚠️ Live price not available — showing fake signal</b></p>"
+        info = "<p style='color:red'><b>⚠️ Live price not available — showing fallback signal</b></p>"
 
     return f"""
     <!DOCTYPE html>
     <html>
     <head>
-        <title>V75 Signal</title>
+        <title>V75 Signal App</title>
         <meta http-equiv='refresh' content='60'>
         <style>
             body {{
-                font-family: Arial;
+                font-family: Arial, sans-serif;
                 text-align: center;
                 background-color: #f9f9f9;
                 padding: 30px;
+            }}
+            iframe {{
+                margin: 20px auto;
+                border: 1px solid #ccc;
+                border-radius: 8px;
             }}
             .signal-box {{
                 background: #fff;
@@ -64,13 +69,23 @@ async def home():
                 padding: 20px;
                 border-radius: 10px;
                 display: inline-block;
-                margin-top: 20px;
                 box-shadow: 0 0 10px rgba(0,0,0,0.05);
+                margin-top: 20px;
             }}
         </style>
     </head>
     <body>
-        <h1>📈 V75 Signal</h1>
+        <h1>📈 V75 Live Signal + Chart</h1>
+
+        <!-- ✅ Embedded Deriv Chart -->
+        <iframe
+            src="https://charts.deriv.com/"
+            width="100%"
+            height="500"
+            frameborder="0"
+            allowfullscreen>
+        </iframe>
+
         {info}
         <div class="signal-box">
             <h2>📡 Signal</h2>
